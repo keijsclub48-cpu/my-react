@@ -1,35 +1,46 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import React, { useState } from 'react';
+import Sketch from './p5Sketch.jsx';
 
-function App() {
-  const [count, setCount] = useState(0)
+export default function App() {
+  const [data, setData] = useState(null);
+  const [recorder, setRecorder] = useState(null);
+  const [chunks, setChunks] = useState([]);
+
+  const startRecording = async () => {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const mediaRecorder = new MediaRecorder(stream);
+    setRecorder(mediaRecorder);
+    setChunks([]);
+
+    mediaRecorder.ondataavailable = e => setChunks(prev => [...prev, e.data]);
+
+    mediaRecorder.onstop = async () => {
+      const blob = new Blob(chunks, { type: 'audio/webm' });
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const base64Audio = reader.result.split(',')[1];
+        const res = await fetch('http://localhost:3000/score', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer YOUR_API_KEY' },
+          body: JSON.stringify({ audio: base64Audio })
+        });
+        const result = await res.json();
+        setData(result);
+      };
+      reader.readAsDataURL(blob);
+    };
+
+    mediaRecorder.start();
+  };
+
+  const stopRecording = () => recorder?.stop();
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+    <div>
+      <h1>音楽測定アプリ（React + p5.js）</h1>
+      <button onClick={startRecording}>録音開始</button>
+      <button onClick={stopRecording}>録音終了</button>
+      {data && <Sketch data={data} />}
+    </div>
+  );
 }
-
-export default App
