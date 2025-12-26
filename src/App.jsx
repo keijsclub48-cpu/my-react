@@ -1,6 +1,8 @@
 import React, { useState, useRef } from 'react';
 import Sketch from './p5Sketch.jsx';
 
+const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:3000';
+
 export default function App() {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
@@ -27,7 +29,7 @@ export default function App() {
             try {
               const base64Audio = reader.result.split(',')[1];
 
-              const res = await fetch('/api/score', {
+              const res = await fetch(`${API_BASE}/api/score`, {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
@@ -38,18 +40,26 @@ export default function App() {
                 body: JSON.stringify({ audio: base64Audio })
               });
 
+              const text = await res.text();
+
               if (!res.ok) {
-                const err = await res.json();
-                throw new Error(err.error || 'API Error');
+                throw new Error(text || 'API Error');
               }
 
-              const result = await res.json();
+              let result = null;
+              try {
+                result = text ? JSON.parse(text) : null;
+              } catch (e) {
+                console.error('JSON parse failed:', text);
+                throw new Error('Invalid JSON response');
+              }
+
               setData(result);
               setError(null);
 
             } catch (e) {
               console.error(e);
-              setError(e.message);
+              setError(e.message || 'API通信に失敗しました');
             }
           };
 
@@ -74,6 +84,7 @@ export default function App() {
   return (
     <div>
       <h1>音楽測定アプリ（React + p5.js）</h1>
+
       <button onClick={startRecording}>録音開始</button>
       <button onClick={stopRecording}>録音終了</button>
 
