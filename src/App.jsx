@@ -1,6 +1,7 @@
 import React, { useState, useRef } from "react";
 
-const API_BASE = import.meta.env.VITE_API_BASE;
+const API_BASE = import.meta.env.VITE_API_BASE; // 末尾 /api は不要
+const API_KEY = import.meta.env.VITE_API_KEY;
 
 export default function App() {
   const [apiData, setApiData] = useState(null);
@@ -8,6 +9,7 @@ export default function App() {
   const recorderRef = useRef(null);
   const chunksRef = useRef([]);
 
+  // 録音開始
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -27,7 +29,8 @@ export default function App() {
     }
   };
 
-  const stopRecording = () => {
+  // 録音停止・API送信
+  const stopRecording = async () => {
     if (!recorderRef.current) return;
 
     recorderRef.current.onstop = async () => {
@@ -40,15 +43,18 @@ export default function App() {
       const reader = new FileReader();
 
       reader.onloadend = async () => {
-        try {
-          const base64Audio = reader.result.split(",")[1];
-          if (!base64Audio) throw new Error("録音データが空です");
+        const base64Audio = reader.result?.split(",")[1];
+        if (!base64Audio) {
+          setError("録音データ取得に失敗しました");
+          return;
+        }
 
+        try {
           const res = await fetch(`${API_BASE}/api/score`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              Authorization: `Bearer ${import.meta.env.VITE_API_KEY}`,
+              ...(API_KEY && { Authorization: `Bearer ${API_KEY}` }),
             },
             body: JSON.stringify({ audio: base64Audio }),
           });
@@ -60,6 +66,7 @@ export default function App() {
 
           const json = await res.json();
           setApiData(json);
+          setError(null);
         } catch (e) {
           console.error(e);
           setError(e.message);
@@ -73,15 +80,18 @@ export default function App() {
   };
 
   return (
-    <div>
-      <h1>ダミー API 連携テスト</h1>
-      <button onClick={startRecording}>録音開始</button>
-      <button onClick={stopRecording}>録音終了</button>
+    <div style={{ textAlign: "center", padding: "20px", fontFamily: "sans-serif" }}>
+      <h1>VocaScan 本番 API テスト</h1>
+
+      <div style={{ margin: "20px" }}>
+        <button onClick={startRecording} style={styles.buttonStart}>録音開始</button>
+        <button onClick={stopRecording} style={styles.buttonStop}>録音終了</button>
+      </div>
 
       {error && <p style={{ color: "red" }}>{error}</p>}
 
       {apiData && (
-        <div>
+        <div style={{ marginTop: "20px" }}>
           <p>Pitch: {apiData.pitch}</p>
           <p>Stability: {apiData.stability}</p>
           <p>Score: {apiData.score}</p>
@@ -90,3 +100,25 @@ export default function App() {
     </div>
   );
 }
+
+const styles = {
+  buttonStart: {
+    padding: "10px 24px",
+    fontSize: "16px",
+    borderRadius: "8px",
+    border: "none",
+    background: "#4caf50",
+    color: "#fff",
+    cursor: "pointer",
+    marginRight: "10px",
+  },
+  buttonStop: {
+    padding: "10px 24px",
+    fontSize: "16px",
+    borderRadius: "8px",
+    border: "none",
+    background: "#f44336",
+    color: "#fff",
+    cursor: "pointer",
+  },
+};
