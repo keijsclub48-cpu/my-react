@@ -1,6 +1,6 @@
 import React, { useState, useRef } from "react";
 
-const API_BASE = import.meta.env.VITE_API_BASE; // 末尾 /api は不要
+const API_BASE = import.meta.env.VITE_API_BASE; // 例: http://localhost:3000
 const API_KEY = import.meta.env.VITE_API_KEY;
 
 export default function App() {
@@ -9,7 +9,6 @@ export default function App() {
   const recorderRef = useRef(null);
   const chunksRef = useRef([]);
 
-  // 録音開始
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -23,14 +22,14 @@ export default function App() {
 
       mediaRecorder.start();
       setError(null);
+      console.log("録音開始");
     } catch (e) {
       console.error(e);
       setError("マイクが使用できません");
     }
   };
 
-  // 録音停止・API送信
-  const stopRecording = async () => {
+  const stopRecording = () => {
     if (!recorderRef.current) return;
 
     recorderRef.current.onstop = async () => {
@@ -48,6 +47,8 @@ export default function App() {
           setError("録音データ取得に失敗しました");
           return;
         }
+
+        console.log("base64Audio length:", base64Audio.length);
 
         try {
           const res = await fetch(`${API_BASE}/api/score`, {
@@ -67,6 +68,7 @@ export default function App() {
           const json = await res.json();
           setApiData(json);
           setError(null);
+          console.log("API Response:", json);
         } catch (e) {
           console.error(e);
           setError(e.message);
@@ -77,11 +79,12 @@ export default function App() {
     };
 
     recorderRef.current.stop();
+    console.log("録音終了");
   };
 
   return (
     <div style={{ textAlign: "center", padding: "20px", fontFamily: "sans-serif" }}>
-      <h1>VocaScan 本番 API テスト</h1>
+      <h1>VocaScan API テスト</h1>
 
       <div style={{ margin: "20px" }}>
         <button onClick={startRecording} style={styles.buttonStart}>録音開始</button>
